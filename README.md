@@ -1,6 +1,6 @@
 # LinkedIn Content Creation Agent
 
-An AI agent that generates LinkedIn posts in a trained writing style, built for the NB Media AI Agent assignment. It uses **RAG (Retrieval-Augmented Generation)** over a corpus of real reference posts instead of fine-tuning — fully free-tier, fully local except for two API calls (Gemini + Tavily).
+An AI agent that generates LinkedIn posts in a trained writing style. It uses **RAG (Retrieval-Augmented Generation)** over a corpus of real reference posts instead of fine-tuning — fully free-tier, fully local except for two API calls (Gemini + Tavily).
 
 ## Overview
 
@@ -8,9 +8,11 @@ Instead of fine-tuning a model on someone's writing (expensive, slow, and overki
 
 1. Stores real reference posts locally and embeds them into a vector database (ChromaDB).
 2. At generation time, retrieves the posts most relevant to the new topic.
-3. Feeds those posts to Gemini as **style examples** inside the prompt, asking it to write something new in the same voice.
+3. Feeds those posts to Gemini as **style examples** inside the prompt, asking it to write something new in the same style.
 
-This is the same pattern production content tools use ("few-shot style transfer via retrieval"), and it has two big advantages over fine-tuning for this use case: it costs nothing beyond API calls, and the style updates instantly the moment you add a new reference post — no retraining required.
+it has two big advantages over fine-tuning for this use case: 
+- it costs nothing beyond API calls
+- the style updates instantly the moment you add a new reference post — no retraining required.
 
 ## Features
 
@@ -70,44 +72,181 @@ linkedin-agent/
 ├── ingest.py                # Embeds posts into ChromaDB
 ├── generate_post.py        # Core RAG generation logic
 ├── requirements.txt
-├── .env.example
+├── .env
 ├── data/
 │   └── sample_posts.json   # Placeholder reference posts (see note below)
 └── chroma_db/               # Created automatically by ingest.py
 ```
 
-> **Important note on `data/sample_posts.json`:** these are original example posts written to demonstrate a generic "founder thought-leadership" LinkedIn voice (short punchy lines, a hook, a personal anecdote, a closing question) so the full pipeline can be run and demoed immediately. They are **not** actually scraped from any real LinkedIn profile. For a real deployment, replace this file with genuine reference posts — either by running `scrape_posts.py` against an account you control, or by manually copying 10–20 real posts into `data/raw_posts.json` using the same JSON shape.
+> **Important note on `data/sample_posts.json`:** For this proof of concept, the dataset contains manually collected LinkedIn posts from Nikit Bassi that are used as the style corpus for retrieval-augmented generation (RAG). These posts are not used to train or fine-tune a model. Instead, they are embedded using Gemini Embeddings and stored in ChromaDB. During generation, the system retrieves the most relevant posts and uses them as style references to help Gemini produce new LinkedIn content with a similar tone, structure, formatting, and writing style.
+The dataset follows a simple JSON structure:
 
-## Installation
+{
+  "id": "nikit_001",
+  "text": "LinkedIn post content",
+  "topic": "AI automation",
+  "likes": 0
+}
 
-### 1. Clone / unzip the project and enter the folder
+For larger-scale deployments, additional posts can be added to the dataset and re-ingested into ChromaDB without retraining the system. This makes the approach significantly faster and more flexible than traditional model fine-tuning for small and frequently updated content collections.
+
+
+## Getting Started
+
+Follow the steps below to run the project locally.
+
+### 1. Clone the Repository
+
 ```bash
+git clone https://github.com/Pranshulx26/linkedin-agent
 cd linkedin-agent
 ```
 
-### 2. Create a virtual environment (Python 3.11 recommended; 3.10–3.12 also work)
+---
+
+### 2. Create and Activate a Virtual Environment
+
+This project was developed using **Python 3.11**. Python 3.10–3.12 should also work.
+
 ```bash
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+python -m venv .venv
 ```
 
-### 3. Install dependencies
+Activate the environment:
+
+**Windows**
+
+```bash
+.venv\Scripts\activate
+```
+
+**macOS / Linux**
+
+```bash
+source .venv/bin/activate
+```
+
+Once activated, you should see `(.venv)` at the beginning of your terminal prompt.
+
+---
+
+### 3. Install Dependencies
+
+Install all required packages:
+
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. (Only if you plan to scrape) Install Playwright's browser binary
+---
+
+### 4. Install Playwright Browser (Optional)
+
+This step is only required if you plan to use `scrape_posts.py` to collect LinkedIn posts automatically.
+
 ```bash
 playwright install chromium
 ```
 
-### 5. Set up your `.env` file
+If you are using the provided dataset in `data/sample_posts.json`, you can skip this step.
+
+---
+
+### 5. Configure Environment Variables
+
+Create a `.env` file from the provided template:
+
+**Windows**
+
 ```bash
-copy .env.example .env        # Windows
-# cp .env.example .env         # macOS/Linux
+copy .env.example .env
 ```
-Then open `.env` and fill in your keys (see below for how to get them).
+
+**macOS / Linux**
+
+```bash
+cp .env.example .env
+```
+
+Open the `.env` file and add your API keys and configuration values.
+
+Example:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key
+TAVILY_API_KEY=your_tavily_api_key
+
+GEMINI_CHAT_MODEL=gemini-2.5-flash
+GEMINI_EMBEDDING_MODEL=models/gemini-embedding-001
+```
+
+Instructions for obtaining the required API keys are provided below.
+
+---
+
+### 6. Prepare the Style Dataset
+
+The project uses a collection of LinkedIn posts as the style reference dataset.
+
+For this proof of concept, a manually curated dataset of Nikit Bassi's LinkedIn posts is included in:
+
+```text
+data/sample_posts.json
+```
+
+You can also replace this file with your own dataset using the same JSON structure.
+
+---
+
+### 7. Build the Vector Database
+
+Before generating content, the posts must be converted into embeddings and stored in ChromaDB.
+
+Run:
+
+```bash
+python ingest.py
+```
+
+This will:
+
+* Load the reference posts
+* Generate embeddings using Gemini
+* Store them in ChromaDB
+* Create the local vector database inside the `chroma_db/` directory
+
+You only need to run this again when you add or modify posts in the dataset.
+
+---
+
+### 8. Launch the Application
+
+Start the Streamlit interface:
+
+```bash
+streamlit run app.py
+```
+
+Once the server starts, open the URL shown in your terminal (usually `http://localhost:8501`).
+
+---
+
+### 9. Generate Content
+
+Inside the application:
+
+1. Enter a topic
+2. Select a target audience
+3. Specify a content goal
+4. Click **Generate Post**
+
+The system will:
+
+* Retrieve relevant reference posts from ChromaDB
+* Analyze their writing style
+* Generate a new LinkedIn post using Gemini
+* Provide hashtags, image ideas, carousel ideas, and thumbnail suggestions
+
 
 ## Getting Your API Keys
 
@@ -121,22 +260,6 @@ Then open `.env` and fill in your keys (see below for how to get them).
 2. Sign up for a free account.
 3. Copy your API key from the dashboard into `TAVILY_API_KEY` in your `.env` file.
 
-## Running It
-
-### Step 1 — Build the knowledge base
-```bash
-python ingest.py
-```
-This reads `data/raw_posts.json` if present, otherwise falls back to `data/sample_posts.json`, embeds every post with Gemini's embedding model, and stores the vectors in `chroma_db/`.
-
-### Step 2 — Launch the app
-```bash
-streamlit run app.py
-```
-This opens a browser tab at `http://localhost:8501`. From there:
-- Use the **User Input Workflow** tab for the topic / audience / goal form.
-- Use the **Research & Generate** tab to have the agent research the topic via Tavily before writing.
-- Use the sidebar "Rebuild knowledge base" button any time you update your reference posts — no need to restart the app.
 
 ### (Optional) Step 0 — Scrape real reference posts first
 ```bash
@@ -146,34 +269,21 @@ Requires `LINKEDIN_EMAIL`, `LINKEDIN_PASSWORD`, and `LINKEDIN_PROFILE_URL` in `.
 
 ## Screenshots
 
-> _Add screenshots here before submitting:_
-> - `screenshots/user_input_workflow.png` — the User Input tab with a generated post
-> - `screenshots/research_workflow.png` — the Research & Generate tab showing the research summary
-> - `screenshots/sidebar.png` — the sidebar status checks and rebuild button
+### User Input Workflow 
 
-## Troubleshooting
+![User Input Workflow](screenshots/user_input_workflow.png)
 
-**"Missing required environment variable(s): GEMINI_API_KEY"**
-Your `.env` file is missing or the key wasn't filled in. Confirm `.env` (not `.env.example`) exists in the project root and contains a real key.
+### Research WOrkflow
 
-**`ingest.py` fails with a 403/permission error from Google**
-Your Gemini API key may not have the Generative Language API enabled, or you've hit the free-tier rate limit. Wait a minute and retry, or generate a fresh key.
+![Research Workflow](screenshots/research_workflow.png)
 
-**Gemini returns text that fails JSON parsing**
-This is rare but possible with any LLM. `generate_post.py` already strips common markdown code fences defensively. If it still fails, just click "Generate" again — temperature is set to 0.7, so retries usually succeed. Lowering `temperature` in `get_llm()` (in `generate_post.py`) makes output more consistently formatted at the cost of some creativity.
+### Sidebar (Rebuild Knowledge Base)
 
-**`scrape_posts.py` hangs or throws a login error**
-LinkedIn most likely showed a security checkpoint (CAPTCHA / "verify it's you") that the script cannot solve. Log in manually once in a normal browser from the same network/device, then retry — or skip scraping entirely and populate `data/raw_posts.json` manually.
+![Rebuild Knowledge Base](screenshots/sidebar.png)
 
-**ChromaDB telemetry error messages in the console**
-Harmless. ChromaDB attempts to send anonymous usage telemetry and occasionally logs a benign error if that fails; it does not affect functionality.
+## Future Improvements 
 
-**Streamlit says "Port 8501 is already in use"**
-Run `streamlit run app.py --server.port 8502` instead, or stop the other Streamlit process.
-
-## Future Improvements (Beyond This POC)
-
-- Multi-author style profiles (swap between different trained voices)
+- Multi-author style profiles (swap between different trained styles)
 - A feedback loop where the user edits a generated post and that edit is stored as a new high-quality reference example
 - Sentiment/engagement scoring on reference posts so retrieval favors a person's best-performing style, not just their most topically similar post
 - Batch generation (generate 5 post variants at once and let the user pick)
@@ -182,44 +292,57 @@ Run `streamlit run app.py --server.port 8502` instead, or stop the other Streaml
 
 ## One-Week Improvements Plan
 
-If given a full week to build this properly (beyond a proof of concept), here is what I would add, with tech stack and implementation approach for each.
+If I had an additional week to continue developing this project beyond the proof of concept, these are the features I would add.
 
 ### 1. LinkedIn Auto-Posting
 
-**Feature:** Once a post is generated and approved, publish it directly to LinkedIn without copy-pasting.
+**Feature:** Publish generated posts directly to LinkedIn from the application.
 
-**Tech stack:** LinkedIn's official `Share on LinkedIn` / Marketing API (`w_member_social` scope), OAuth 2.0, Python `requests`, or an `n8n` HTTP node if moving the back end to a no-code flow.
+**Tech Stack:** LinkedIn API, Python, Streamlit
 
-**Implementation approach:** Add an OAuth 2.0 flow so the user authorizes the app once; store the resulting access/refresh token securely (encrypted at rest, not in `.env` in plaintext for a real product). Add a "Publish" button in `app.py` that POSTs the approved `full_post` text plus any uploaded image to LinkedIn's `/v2/ugcPosts` endpoint. Handle token refresh and rate limits, and add a confirmation step so nothing posts without explicit human approval — this assignment is about drafting content, not autonomous posting.
+**Implementation Approach:**
+After generating a post, users could click a "Publish" button inside the application. The system would connect to LinkedIn through its API and post the approved content directly to the user's account. This would remove the need to manually copy and paste content.
+
+---
 
 ### 2. Content Calendar
 
-**Feature:** Let the user schedule generated posts for specific future dates/times instead of posting immediately, and see an overview of what's queued.
+**Feature:** Schedule posts for future dates.
 
-**Tech stack:** Google Calendar API (for a visual calendar the user already lives in) + a lightweight database (SQLite for a POC, Postgres for production) to store post content, status (`draft`/`scheduled`/`published`), and scheduled timestamp. A scheduled job (APScheduler, or a cron-triggered cloud function) to fire the actual post at the scheduled time via the Auto-Posting integration above.
+**Tech Stack:** Streamlit, SQLite, Google Calendar API
 
-**Implementation approach:** Add a "Schedule" button next to "Publish" in the UI that opens a date/time picker, writes a row to the database, and creates a matching Google Calendar event (for visibility) via the Calendar API. A background scheduler polls the database every few minutes for posts whose time has arrived and triggers publishing.
+**Implementation Approach:**
+Users could save generated posts and assign a date and time for publishing. Scheduled posts would be stored in a database and displayed in a simple calendar view. This would help users plan content ahead of time and maintain a consistent posting schedule.
+
+---
 
 ### 3. Analytics Dashboard
 
-**Feature:** Track which generated posts perform best (likes, comments, shares, follower growth) and feed that back into which reference posts get prioritized during retrieval.
+**Feature:** Track post performance.
 
-**Tech stack:** LinkedIn's analytics endpoints (where available for the account) or a manual metrics-entry form as a fallback, stored in the same SQLite/Postgres database, visualized in a Streamlit dashboard page using `plotly` or `recharts`-style charts.
+**Tech Stack:** Streamlit, Plotly, SQLite
 
-**Implementation approach:** After a post is published, periodically pull its engagement stats and store them. Build a second Streamlit page showing trend lines per post and per topic. Use this data to weight ChromaDB retrieval — for example, by boosting the `likes` metadata field already present in the post schema so future generations lean more heavily on what's proven to work, not just what's topically similar.
+**Implementation Approach:**
+After a post is published, engagement metrics such as likes, comments, and shares could be stored and displayed inside a dashboard. Users would be able to see which topics perform best and use those insights when creating future content.
 
-### 4. Multi-Platform Posting
+---
 
-**Feature:** Repurpose the same generated content for Twitter/X, Instagram captions, or a newsletter, with format-appropriate adjustments (character limits, hashtag conventions, tone).
+### 4. Multi-Platform Content Generation
 
-**Tech stack:** Platform-specific APIs (X API v2, Meta Graph API for Instagram), plus a small "platform adapter" layer in Python so `generate_post.py`'s core output feeds multiple formatters.
+**Feature:** Generate content for multiple social media platforms.
 
-**Implementation approach:** Add a `platform` parameter to the generation prompt so Gemini adapts length/tone per platform, or do a cheaper second-pass transformation: generate the LinkedIn version first (long-form, the "source of truth"), then ask Gemini to condense/reformat it per platform rather than regenerating from scratch — this keeps brand voice consistent across platforms instead of drifting.
+**Tech Stack:** Gemini API, Python
+
+**Implementation Approach:**
+Instead of generating only LinkedIn posts, users could choose a platform such as X (Twitter), Instagram, or Facebook. The system would adapt the content length, format, and writing style for the selected platform while keeping the original message consistent.
+
+---
 
 ### 5. A/B Testing
 
-**Feature:** Generate two or more variants of a post (different hooks, different CTAs) and systematically determine which performs better.
+**Feature:** Generate multiple versions of the same post and compare performance.
 
-**Tech stack:** Same database as the Analytics Dashboard, plus a simple statistical significance check (e.g. a basic two-proportion z-test using `scipy.stats`) once enough engagement data has accumulated.
+**Tech Stack:** Gemini API, SQLite
 
-**Implementation approach:** Extend `generate_post_from_topic()` to optionally return N variants instead of one (same retrieved style examples, higher temperature, multiple LLM calls). Tag each published variant with a test ID. Once both variants have been live for a set period, pull engagement data and run the significance check; surface the winner (and why) in the Analytics Dashboard so future generations can learn which hook styles or CTA phrasing actually convert for this specific audience.
+**Implementation Approach:**
+The system could generate two different versions of a post with different hooks or calls-to-action. After publishing, engagement metrics could be compared to determine which version performs better. This would help improve future content generation and audience engagement.
