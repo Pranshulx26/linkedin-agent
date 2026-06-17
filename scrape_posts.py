@@ -112,8 +112,6 @@ def main() -> None:
     config.require_keys("LINKEDIN_EMAIL", "LINKEDIN_PASSWORD", "LINKEDIN_PROFILE_URL")
 
     with sync_playwright() as pw:
-        # headless=False is intentional during scraping: headless browsers are
-        # far more likely to be flagged by LinkedIn's bot-detection.
         browser = pw.chromium.launch(headless=False, slow_mo=150)
         context = browser.new_context()
         page = context.new_page()
